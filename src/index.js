@@ -1,11 +1,13 @@
 const express = require("express");
 const prisma = require("./db");
 const authRoutes = require("./routes/auth");
+const chatroomRoutes = require("./routes/chatroom");
 
 const app = express();
 app.use(express.json());
 
 app.use("/auth", authRoutes);
+app.use("/chatroom", chatroomRoutes);
 
 app.get("/", async (req, res) => {
   const users = await prisma.user.findMany();
