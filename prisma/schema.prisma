@@ -1,0 +1,46 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model User {
+  id         Int       @id @default(autoincrement())
+  phone_no      String    @unique        // user logs in with phone number
+  isPremium    Boolean   @default(false) // true if user bought subscription
+  joinedAt   DateTime  @default(now())
+
+  rooms      Chatroom[]    // one user can have many chatrooms
+}
+
+model Chatroom {
+  id        Int       @id @default(autoincrement())
+  name      String    // chatroom name, e.g. "Homework help"
+  createdAt DateTime  @default(now())
+
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+
+  messages  Message[] // one room can have many messages
+}
+
+model Message {
+  id        Int       @id @default(autoincrement())
+  who       String    // either "user" or "bot"
+  content      String    // the actual message
+  sentAt    DateTime  @default(now())
+
+  roomId    Int
+  room      Chatroom      @relation(fields: [roomId], references: [id])
+}
