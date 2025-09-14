@@ -1,10 +1,12 @@
 const express = require("express");
 const prisma = require("./db");
+const authRoutes = require("./routes/auth");
 
 const app = express();
 app.use(express.json());
 
-// test endpoint
+app.use("/auth", authRoutes);
+
 app.get("/", async (req, res) => {
   const users = await prisma.user.findMany();
   res.json({ msg: "Gemini backend running...", users });
