@@ -16,13 +16,18 @@ datasource db {
 
 
 model User {
-  id         Int       @id @default(autoincrement())
+  id            Int       @id @default(autoincrement())
   phone_no      String    @unique        // user logs in with phone number
-  isPremium    Boolean   @default(false) // true if user bought subscription
-  joinedAt   DateTime  @default(now())
+  name          String?                   // optional display name
+  email         String?    @unique        // optional, unique if provided
+  password_hash String?                   // optional, set on signup
+  isPremium     Boolean   @default(false) // true if user bought subscription
+  joinedAt      DateTime  @default(now())
 
-  rooms      Chatroom[]    // one user can have many chatrooms
+  rooms         Chatroom[]    // one user can have many chatrooms
 }
+
+
 
 model Chatroom {
   id        Int       @id @default(autoincrement())
