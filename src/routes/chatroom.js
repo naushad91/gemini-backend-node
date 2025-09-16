@@ -2,7 +2,7 @@ const express = require("express");
 const prisma = require("../db");
 const redis = require("../redis");
 const authMiddleware = require("../middleware/auth");
-
+const messageQueue = require("../queue");
 const router = express.Router();
 
 // ----------------- create chatroom -----------------
@@ -87,4 +87,46 @@ router.get("/:chatroomId", authMiddleware, async (req, res) => {
   }
 });
 
+// send message
+router.post("/:chatroomId/message", authMiddleware, async (req, res) => {
+  const { chatroomId } = req.params;
+  const { content } = req.body;
+
+  if (!content) {
+    return res.status(400).json({ error: "message content required" });
+  }
+
+  try {
+    const chatroom = await prisma.chatroom.findUnique({
+      where: { id: Number(chatroomId) },
+    });
+
+    if (!chatroom || chatroom.userId !== req.user.id) {
+      return res.status(403).json({ error: "not allowed to post in this chatroom" });
+    }
+
+    // save user message
+    const userMsg = await prisma.message.create({
+      data: {
+        who: "user",
+        content,
+        roomId: chatroom.id,
+      },
+    });
+
+    // push job to Gemini queue
+    await messageQueue.add("processMessage", {
+      chatroomId: chatroom.id,
+      content,
+    });
+
+    res.status(201).json({
+      msg: "Message saved, Gemini response will arrive shortly",
+      message: userMsg,
+    });
+  } catch (err) {
+    console.error("send message error:", err);
+    res.status(500).json({ error: "could not send message" });
+  }
+});
 module.exports = router;
