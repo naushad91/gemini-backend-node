@@ -2,10 +2,12 @@ const express = require("express");
 const prisma = require("./db");
 const authRoutes = require("./routes/auth");
 const chatroomRoutes = require("./routes/chatroom");
+const userRoutes = require("./routes/user");
 
 const app = express();
 app.use(express.json());
 
+app.use("/user", userRoutes);
 app.use("/auth", authRoutes);
 app.use("/chatroom", chatroomRoutes);
 

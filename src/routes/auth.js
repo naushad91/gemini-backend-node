@@ -149,9 +149,6 @@ router.post("/change-password", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "could not change password" });
   }
 });
-// ----------------- me -----------------
-router.get("/me", authMiddleware, async (req, res) => {
-  res.json({ user: req.user });
-});
+
 
 module.exports = router;
