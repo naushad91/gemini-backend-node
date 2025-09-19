@@ -14,40 +14,78 @@ function generateOtp() {
 }
 
 // ----------------- signup -----------------
-// phone_no and password are required
+// ----------------- signup -----------------
 router.post("/signup", async (req, res) => {
-  const { phone_no, name, password } = req.body;
-  if (!phone_no || !password) {
-    return res.status(400).json({ error: "phone_no and password are required" });
+  const { phone_no, name, email, password } = req.body;
+
+  // 1. Check all fields
+  if (!phone_no || !name || !email || !password) {
+    return res
+      .status(400)
+      .json({ error: "All fields (phone_no, name, email, password) are required" });
+  }
+
+  // 2. Validate phone number (10 digits)
+  const phoneRegex = /^[0-9]{10}$/;
+  if (!phoneRegex.test(phone_no)) {
+    return res.status(400).json({ error: "Phone number must be 10 digits" });
+  }
+
+  // 3. Validate email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: "Invalid email format" });
+  }
+
+  // 4. Validate password strength
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
+  if (!passwordRegex.test(password)) {
+    return res.status(400).json({
+      error:
+        "Password must be at least 6 characters long and include uppercase, lowercase, and a number",
+    });
   }
 
   try {
-    const existing = await prisma.user.findUnique({ where: { phone_no } });
-    if (existing) {
-      return res.status(409).json({ error: "user already exists" });
+    // 5. Check if phone_no already exists
+    const existingPhone = await prisma.user.findUnique({ where: { phone_no } });
+    if (existingPhone) {
+      return res.status(409).json({ error: "Phone number already registered" });
     }
 
-    const createData = {
-      phone_no,
-      name: name ?? undefined,
-      password_hash: await bcrypt.hash(password, 10), // always required
-    };
+    // 6. Check if email already exists
+    const existingEmail = await prisma.user.findUnique({ where: { email } });
+    if (existingEmail) {
+      return res.status(409).json({ error: "Email already registered" });
+    }
 
-    const user = await prisma.user.create({ data: createData });
-    const { password_hash, ...safe } = user; // don’t return hash
+    // 7. Hash password & create user
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        phone_no,
+        name,
+        email,
+        password_hash: hashedPassword,
+      },
+    });
+
+    // Don’t return password_hash
+    const { password_hash, ...safe } = user;
     res.status(201).json(safe);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "signup failed" });
+    console.error("signup error:", err);
+    res.status(500).json({ error: "Signup failed, please try again later" });
   }
 });
 
-// ----------------- send-otp (login page) -----------------
-// Requires phone_no + password. If match, generate OTP.
+// ----------------- send-otp (pure OTP login) -----------------
+// Requires only phone_no. Sends OTP if user exists.
 router.post("/send-otp", async (req, res) => {
-  const { phone_no, password } = req.body;
-  if (!phone_no || !password) {
-    return res.status(400).json({ error: "phone_no and password required" });
+  const { phone_no } = req.body;
+  if (!phone_no) {
+    return res.status(400).json({ error: "phone_no is required" });
   }
 
   const user = await prisma.user.findUnique({ where: { phone_no } });
@@ -57,19 +95,15 @@ router.post("/send-otp", async (req, res) => {
     return res.status(404).json({ error: "mobile number not registered" });
   }
 
-  // compare password
-  const ok = await bcrypt.compare(password, user.password_hash);
-  if (!ok) {
-    return res.status(401).json({ error: "incorrect password" });
-  }
-
   // generate OTP
   const otp = generateOtp();
   await redis.set(`otp:login:${phone_no}`, otp, "EX", 120); // store OTP 2 minutes
 
-  // return OTP in response (mocked)
+  // return OTP in response (mocked for assignment)
   return res.json({ phone_no, otp });
 });
+
+
 
 
 // ----------------- forgot-password -----------------
