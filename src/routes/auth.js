@@ -153,17 +153,36 @@ router.post("/verify-otp", async (req, res) => {
 // ----------------- change-password -----------------
 // 1. Logged-in users can change password.
 // 2. Also works right after forgot-password + verify-otp (since they get a JWT).
+// ----------------- change-password -----------------
+// Allows logged-in user to set a new password (after OTP login)
 router.post("/change-password", authMiddleware, async (req, res) => {
   const { new_password } = req.body;
+
   if (!new_password) {
     return res.status(400).json({ error: "new_password is required" });
+  }
+
+  // enforce strong password rules
+  if (
+    new_password.length < 6 ||
+    !/[A-Z]/.test(new_password) ||
+    !/[a-z]/.test(new_password) ||
+    !/[0-9]/.test(new_password) ||
+    !/[!@#$%^&*(),.?":{}|<>]/.test(new_password)
+  ) {
+    return res.status(400).json({
+      error:
+        "password must be at least 6 characters and include uppercase, lowercase, number, and special character",
+    });
   }
 
   try {
     const user = req.user;
 
+    // Hash new password
     const newHash = await bcrypt.hash(new_password, 10);
 
+    // Update DB
     await prisma.user.update({
       where: { id: user.id },
       data: { password_hash: newHash },
