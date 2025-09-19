@@ -107,8 +107,7 @@ router.post("/send-otp", async (req, res) => {
 
 
 // ----------------- forgot-password -----------------
-// If user forgets password, they can request an OTP to the registered mobile.
-// We store the OTP under the same "login" key so verify-otp will work the same way.
+// Request OTP for password reset
 router.post("/forgot-password", async (req, res) => {
   const { phone_no } = req.body;
   if (!phone_no) return res.status(400).json({ error: "phone_no required" });
@@ -117,50 +116,45 @@ router.post("/forgot-password", async (req, res) => {
   if (!user) return res.status(404).json({ error: "user not found" });
 
   const otp = generateOtp();
-  await redis.set(`otp:login:${phone_no}`, otp, "EX", 120);
+  await redis.set(`otp:reset:${phone_no}`, otp, "EX", 300); // 5 minutes
 
-  // mocked: return OTP in response
-  res.json({ phone_no, otp });
+  res.json({ phone_no, otp }); // mocked, in real life send SMS
 });
 
 // ----------------- verify-otp -----------------
-// Verifies OTP (used after send-otp/login  or forgot-password).
-// Verifies OTP for existing user and returns JWT.
+// Verifies OTP (login OR password reset). Always returns JWT.
 router.post("/verify-otp", async (req, res) => {
   const { phone_no, otp } = req.body;
   if (!phone_no || !otp) {
     return res.status(400).json({ error: "phone_no and otp are required" });
   }
 
-  const key = `otp:login:${phone_no}`;
-  const saved = await redis.get(key);
+  const loginKey = `otp:login:${phone_no}`;
+  const resetKey = `otp:reset:${phone_no}`;
+  const savedLogin = await redis.get(loginKey);
+  const savedReset = await redis.get(resetKey);
 
-  if (!saved || saved !== otp) {
-    return res.status(400).json({ error: "invalid or expired otp" });
+  // OTP must match either login or reset
+  if ((savedLogin && savedLogin === otp) || (savedReset && savedReset === otp)) {
+    // consume OTP
+    await redis.del(loginKey);
+    await redis.del(resetKey);
+
+    const user = await prisma.user.findUnique({ where: { phone_no } });
+    if (!user) return res.status(404).json({ error: "mobile number not registered" });
+
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+    return res.json({ access_token: token, token_type: "bearer" });
   }
 
-  // consume OTP
-  await redis.del(key);
-
-  // find user (signup must have been done earlier)
-  const user = await prisma.user.findUnique({ where: { phone_no } });
-  if (!user) {
-    return res.status(404).json({ error: "mobile number not registered" });
-  }
-
-  // generate JWT
-  const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
-
-  res.json({ access_token: token, token_type: "bearer" });
+  return res.status(400).json({ error: "invalid or expired otp" });
 });
 
 // ----------------- change-password -----------------
-// Allows logged-in user to set a new password (after OTP login)
+// 1. Logged-in users can change password.
+// 2. Also works right after forgot-password + verify-otp (since they get a JWT).
 router.post("/change-password", authMiddleware, async (req, res) => {
   const { new_password } = req.body;
-
   if (!new_password) {
     return res.status(400).json({ error: "new_password is required" });
   }
@@ -168,10 +162,8 @@ router.post("/change-password", authMiddleware, async (req, res) => {
   try {
     const user = req.user;
 
-    // Hash new password
     const newHash = await bcrypt.hash(new_password, 10);
 
-    // Update DB
     await prisma.user.update({
       where: { id: user.id },
       data: { password_hash: newHash },
@@ -183,6 +175,7 @@ router.post("/change-password", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "could not change password" });
   }
 });
+
 
 
 module.exports = router;
