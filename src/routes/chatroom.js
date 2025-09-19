@@ -2,6 +2,7 @@ const express = require("express");
 const prisma = require("../db");
 const redis = require("../redis");
 const authMiddleware = require("../middleware/auth");
+const rateLimit = require("../middleware/ratelimit");
 const messageQueue = require("../queue");
 const router = express.Router();
 
@@ -88,7 +89,7 @@ router.get("/:chatroomId", authMiddleware, async (req, res) => {
 });
 
 // send message
-router.post("/:chatroomId/message", authMiddleware, async (req, res) => {
+router.post("/:chatroomId/message", authMiddleware, rateLimit,async (req, res) => {
   const { chatroomId } = req.params;
   const { content } = req.body;
 
