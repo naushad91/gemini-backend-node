@@ -6,13 +6,19 @@ const userRoutes = require("./routes/user");
 const subscriptionRoutes = require("./routes/subscription");
 
 const app = express();
+
+// 👇 Add this BEFORE express.json()
+app.use("/subscription/webhook/stripe", 
+  require("body-parser").raw({ type: "application/json" })
+);
+
+// 👇 For all other routes, JSON is fine
 app.use(express.json());
 
 app.use("/user", userRoutes);
 app.use("/auth", authRoutes);
 app.use("/chatroom", chatroomRoutes);
 app.use("/subscription", subscriptionRoutes);
-
 
 app.get("/", async (req, res) => {
   const users = await prisma.user.findMany();

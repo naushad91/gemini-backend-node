@@ -15,15 +15,13 @@ router.post("/subscribe/pro", authMiddleware, async (req, res) => {
       mode: "subscription",
       line_items: [
         {
-          price: process.env.STRIPE_PRICE_ID, // from dashboard
+          price: process.env.STRIPE_PRICE_ID,
           quantity: 1,
         },
       ],
-      success_url: "http://localhost:3000/success", // frontend success page
-      cancel_url: "http://localhost:3000/cancel",   // frontend cancel page
-      metadata: {
-        userId: req.user.id, // so we know which user paid
-      },
+      success_url: "http://localhost:3000/success",
+      cancel_url: "http://localhost:3000/cancel",
+      metadata: { userId: req.user.id },
     });
 
     res.json({ checkoutUrl: session.url });
@@ -34,41 +32,51 @@ router.post("/subscribe/pro", authMiddleware, async (req, res) => {
 });
 
 // ----------------- 2. Stripe webhook -----------------
-router.post(
-  "/webhook/stripe",
-  bodyParser.raw({ type: "application/json" }), // raw body for Stripe
-  async (req, res) => {
-    const sig = req.headers["stripe-signature"];
+router.post("/webhook/stripe", async (req, res) => {
+  const sig = req.headers["stripe-signature"];
 
-    try {
-      const event = stripe.webhooks.constructEvent(
-        req.body,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
+  try {
+    const event = stripe.webhooks.constructEvent(
+      req.body, // raw buffer (because of bodyParser.raw in index.js)
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET.trim() // trim in case of newline/space
+    );
 
-      if (event.type === "checkout.session.completed") {
-        const session = event.data.object;
+    console.log("Webhook event received:", event.type);
 
-        const userId = session.metadata.userId;
-        if (userId) {
-          await prisma.user.update({
-            where: { id: Number(userId) },
-            data: { isPremium: true },
-          });
-        }
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      const userId = session.metadata?.userId;
+      if (userId) {
+        await prisma.user.update({
+          where: { id: Number(userId) },
+          data: { isPremium: true },
+        });
+        console.log(`✅ User ${userId} upgraded to Pro (checkout.session.completed)`);
       }
-
-      res.json({ received: true });
-    } catch (err) {
-      console.error("webhook error:", err);
-      res.status(400).send(`Webhook Error: ${err.message}`);
     }
+
+    if (event.type === "invoice.payment_succeeded") {
+      const invoice = event.data.object;
+      const userId = invoice.metadata?.userId;
+      if (userId) {
+        await prisma.user.update({
+          where: { id: Number(userId) },
+          data: { isPremium: true },
+        });
+        console.log(`✅ User ${userId} upgraded to Pro (invoice.payment_succeeded)`);
+      }
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error("❌ Webhook error:", err.message);
+    res.status(400).send(`Webhook Error: ${err.message}`);
   }
-);
+});
 
 // ----------------- 3. Check subscription status -----------------
-router.get("/subscription/status", authMiddleware, async (req, res) => {
+router.get("/status", authMiddleware, async (req, res) => {
   const plan = req.user.isPremium ? "Pro" : "Basic";
   res.json({ plan });
 });
