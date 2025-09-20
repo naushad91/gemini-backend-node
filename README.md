@@ -1,17 +1,5 @@
 # Gemini Chat Backend (Assignment - Kuvaka Tech)
 
-## 🚀 Overview
-This project is a backend clone of Gemini Chat with:
-- OTP-based authentication
-- Chatroom management
-- Gemini API integration
-- BullMQ for async processing
-- Stripe subscription system (Basic & Pro plans)
-
-Built with **Node.js (Express)**, **Postgres (Prisma)**, **Redis**, and **Docker**.
-
----
-
 ## 🛠️ Setup & Run
 
 ### Prerequisites
@@ -21,26 +9,26 @@ Built with **Node.js (Express)**, **Postgres (Prisma)**, **Redis**, and **Docker
 
 ### Environment Variables (`.env`)
 
-# Database
-DATABASE_URL=postgresql://postgres:postgres@postgres:5432/gemini_db
-
-# Redis
-REDIS_HOST=redis
-REDIS_PORT=6379
-
-# JWT
-JWT_SECRET=your_jwt_secret
-
-# Gemini API
-GEMINI_API_KEY=your_gemini_api_key
-GEMINI_MODEL=gemini-1.5-flash
-
-# Stripe
-STRIPE_SECRET_KEY=sk_test_xxxx
-STRIPE_PRICE_ID=price_xxxx
-STRIPE_WEBHOOK_SECRET=whsec_xxxx
+```bash
+- DATABASE_URL=postgresql://postgres:postgres@postgres:5432/gemini_db
 
 
+- REDIS_HOST=redis
+- REDIS_PORT=6379
+
+
+- JWT_SECRET=your_jwt_secret
+
+
+- GEMINI_API_KEY=your_gemini_api_key
+- GEMINI_MODEL=gemini-1.5-flash
+
+
+- STRIPE_SECRET_KEY=sk_test_xxxx
+- STRIPE_PRICE_ID=price_xxxx
+- STRIPE_WEBHOOK_SECRET=whsec_xxxx
+
+```
 ### Run with Docker
 ```bash
 docker-compose up --build
@@ -103,7 +91,10 @@ To ensure the app stays **fast and reliable**, we use **BullMQ (Redis-based queu
 - `POST /chatroom/:id/message` → Send message (adds job to Gemini queue)  
 - `GET /chatroom/:id` → Fetch all messages in a chatroom  
 
----
+### 👤 User & Password Management
+- `GET /user/me` → Get details of the currently authenticated user  
+- `POST /auth/forgot-password` → Send OTP for password reset  
+- `POST /auth/change-password` → Change password (after login or OTP reset)  
 
 ### 💳 Subscription Flow
 - `POST /subscription/subscribe/pro` → Start Pro subscription (Stripe Checkout)  
