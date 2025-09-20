@@ -25,7 +25,7 @@ const worker = new Worker(
       // call Gemini
       const botReply = await callGemini(content);
 
-      // save bot reply
+      // save bot reply in db
       await prisma.message.create({
         data: {
           who: "bot",
