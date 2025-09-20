@@ -44,7 +44,7 @@ Backend runs at:
 
 - Redis →
 
-  - OTP storage (short-lived keys)
+  - OTP storage in Redis upstash cloud(short-lived keys)
 
   - Chatroom list caching
 
@@ -107,9 +107,14 @@ To ensure the app stays **fast and reliable**, we use **BullMQ (Redis-based queu
 ---
 
 ## ⚡ Assumptions & Design Decisions
-- ✅ OTP-based login only (no email verification)  
+- ✅ OTP-based login only (no email verification and sms mockup via api generatetoken())  
 - ✅ Stripe in **sandbox mode**  
-- ✅ Basic plan → **5 messages/day** limit  
+- ✅ Basic plan → **3 messages/day** limit  
 - ✅ Pro plan → **Unlimited messages**  
-- ✅ Caching used only for **chatroom list**  
+- ✅ Caching used only for **chatroom list** and **redis otp** 
 - ✅ Asynchronous Gemini calls handled via **BullMQ queue**
+
+### Deployment on Render (Free Plan Hack)
+- Both API and Worker run in the same Render Web Service.
+- Start command: `npm start` runs `src/index.js` and `src/worker.js` in parallel.
+- This avoids needing a paid Background Worker service on Render.
